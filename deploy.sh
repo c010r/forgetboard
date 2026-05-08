@@ -32,12 +32,13 @@ if [ ! -f "$SCRIPT_DIR/backend/manage.py" ] || [ ! -d "$SCRIPT_DIR/frontend/src"
     if [ -d "$INSTALL_DIR" ]; then
         info "El directorio $INSTALL_DIR ya existe, actualizando..."
         cd "$INSTALL_DIR"
-        git pull
+        git pull || true
     else
         info "Clonando repositorio en $INSTALL_DIR..."
         git clone "$REPO_URL" "$INSTALL_DIR"
     fi
     PROJECT_DIR="$INSTALL_DIR"
+    cd "$PROJECT_DIR"
 else
     PROJECT_DIR="$SCRIPT_DIR"
 fi
@@ -102,11 +103,13 @@ fi
 
 # Permitir autenticación con password para conexiones locales
 PG_HBA=$(sudo -u postgres psql -tAc "SHOW hba_file" 2>/dev/null | tr -d ' ')
-if [ -n "$PG_HBA" ] && ! grep -q "^local.*$DB_USER.*md5" "$PG_HBA" 2>/dev/null; then
-    sed -i 's/^local\s\+all\s\+all\s\+peer/local   all             all                                     md5/' "$PG_HBA"
-    sed -i 's/^host\s\+all\s\+all\s\+127\.0\.0\.1\/32\s\+scram-sha-256/host    all             all             127.0.0.1\/32            md5/' "$PG_HBA"
-    systemctl restart postgresql
-    ok "Autenticación PostgreSQL configurada a md5"
+if [ -n "$PG_HBA" ]; then
+    if grep -q "^local.*all.*all.*peer" "$PG_HBA" 2>/dev/null; then
+        sed -i 's/^local\(\s\+\)all\(\s\+\)all\(\s\+\)peer/local\1all\2all\3md5/' "$PG_HBA"
+        sed -i 's/^host\(\s\+\)all\(\s\+\)all\(\s\+\)127\.0\.0\.1\/32\(\s\+\)scram-sha-256/host\1all\2all\3127.0.0.1\/32\4md5/' "$PG_HBA"
+        systemctl restart postgresql
+        ok "Autenticación PostgreSQL configurada a md5"
+    fi
 fi
 
 # -------------------------------------------------------
@@ -186,9 +189,11 @@ else
 fi
 
 cd "$FRONTEND_DIR"
-npm install --silent 2>&1 | tail -1
+info "Instalando dependencias del frontend..."
+npm install 2>&1 | tail -3
 if [ "$DEV_MODE" = false ]; then
-    npm run build 2>&1 | tail -5
+    info "Compilando frontend para producción..."
+    npm run build 2>&1 | tail -10
     ok "Frontend compilado para producción"
 fi
 
