@@ -29,6 +29,7 @@ DJANGO_SECRET_KEY="${DJANGO_SECRET_KEY:-$(openssl rand -hex 50)}"
 BACKEND_PORT="${BACKEND_PORT:-8000}"
 FRONTEND_PORT="${FRONTEND_PORT:-5173}"
 DOMAIN="${DOMAIN:-localhost}"
+SSL_EMAIL="${SSL_EMAIL:-admin@$DOMAIN}"
 # -------------------------------------------------
 
 info "=== Iniciando despliegue de ForgeBoard ==="
@@ -149,8 +150,10 @@ else:
 # -------------------------------------------------------
 info "Configurando frontend React..."
 FE_ENV="$FRONTEND_DIR/.env"
+API_PROTOCOL="http"
+[ "$DOMAIN" != "localhost" ] && [ "$DOMAIN" != "127.0.0.1" ] && API_PROTOCOL="https"
 if [ ! -f "$FE_ENV" ]; then
-    echo "VITE_API_URL=http://$DOMAIN:$BACKEND_PORT/api" > "$FE_ENV"
+    echo "VITE_API_URL=$API_PROTOCOL://$DOMAIN/api" > "$FE_ENV"
     ok "Archivo .env creado en frontend/"
 else
     info "Archivo .env ya existe en frontend/"
@@ -266,6 +269,16 @@ EOF
     rm -f /etc/nginx/sites-enabled/default
     nginx -t && systemctl reload nginx
     ok "Nginx configurado"
+
+    # SSL con Let's Encrypt si el dominio es real
+    if [ "$DOMAIN" != "localhost" ] && [ "$DOMAIN" != "127.0.0.1" ]; then
+        info "Configurando SSL con Let's Encrypt..."
+        apt-get install -y -qq certbot python3-certbot-nginx
+        certbot --nginx -d "$DOMAIN" --non-interactive --agree-tos --email "$SSL_EMAIL" || true
+        # Renovación automática
+        systemctl enable certbot.timer 2>/dev/null || true
+        ok "SSL configurado para $DOMAIN"
+    fi
 fi
 
 # -------------------------------------------------------
@@ -276,10 +289,11 @@ echo -e "${GREEN}============================================${NC}"
 echo -e "${GREEN}  ForgeBoard desplegado exitosamente${NC}"
 echo -e "${GREEN}============================================${NC}"
 echo ""
-echo "  Backend:  http://$DOMAIN:$BACKEND_PORT/api/"
-echo "  Admin:    http://$DOMAIN:$BACKEND_PORT/admin/"
+PROTO="http"; [ "$DOMAIN" != "localhost" ] && [ "$DOMAIN" != "127.0.0.1" ] && PROTO="https"
+echo "  Sitio:    $PROTO://$DOMAIN/"
+echo "  Admin:    $PROTO://$DOMAIN/admin/"
 if [ "$DEV_MODE" = true ]; then
-    echo "  Frontend: http://localhost:$FRONTEND_PORT (o http://$DOMAIN:$FRONTEND_PORT)"
+    echo "  Frontend: http://localhost:$FRONTEND_PORT"
 fi
 echo ""
 echo "  Superusuario: admin / admin123"
