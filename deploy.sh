@@ -57,7 +57,8 @@ if ! sudo -u postgres psql -tAc "SELECT 1 FROM pg_roles WHERE rolname='$DB_USER'
     sudo -u postgres psql -c "CREATE USER $DB_USER WITH PASSWORD '$DB_PASSWORD';"
     ok "Usuario PostgreSQL creado: $DB_USER"
 else
-    info "Usuario PostgreSQL ya existe"
+    sudo -u postgres psql -c "ALTER USER $DB_USER WITH PASSWORD '$DB_PASSWORD';"
+    info "Password actualizado para usuario PostgreSQL: $DB_USER"
 fi
 
 if ! sudo -u postgres psql -tAc "SELECT 1 FROM pg_database WHERE datname='$DB_NAME'" | grep -q 1; then
@@ -66,6 +67,15 @@ if ! sudo -u postgres psql -tAc "SELECT 1 FROM pg_database WHERE datname='$DB_NA
     ok "Base de datos creada: $DB_NAME"
 else
     info "Base de datos ya existe"
+fi
+
+# Permitir autenticación con password para conexiones locales
+PG_HBA=$(sudo -u postgres psql -tAc "SHOW hba_file" 2>/dev/null | tr -d ' ')
+if [ -n "$PG_HBA" ] && ! grep -q "^local.*$DB_USER.*md5" "$PG_HBA" 2>/dev/null; then
+    sed -i 's/^local\s\+all\s\+all\s\+peer/local   all             all                                     md5/' "$PG_HBA"
+    sed -i 's/^host\s\+all\s\+all\s\+127\.0\.0\.1\/32\s\+scram-sha-256/host    all             all             127.0.0.1\/32            md5/' "$PG_HBA"
+    systemctl restart postgresql
+    ok "Autenticación PostgreSQL configurada a md5"
 fi
 
 # -------------------------------------------------------
@@ -95,7 +105,7 @@ DB_ENGINE=django.db.backends.postgresql
 DB_NAME=$DB_NAME
 DB_USER=$DB_USER
 DB_PASSWORD=$DB_PASSWORD
-DB_HOST=localhost
+DB_HOST=127.0.0.1
 DB_PORT=5432
 DJANGO_SECRET_KEY=$DJANGO_SECRET_KEY
 DJANGO_DEBUG=$([ "$DEV_MODE" = true ] && echo 'True' || echo 'False')
