@@ -55,8 +55,8 @@ DB_PASSWORD="${DB_PASSWORD:-$(openssl rand -hex 16)}"
 DJANGO_SECRET_KEY="${DJANGO_SECRET_KEY:-$(openssl rand -hex 50)}"
 BACKEND_PORT="${BACKEND_PORT:-8000}"
 FRONTEND_PORT="${FRONTEND_PORT:-5173}"
-DOMAIN="${DOMAIN:-localhost}"
-SSL_EMAIL="${SSL_EMAIL:-admin@$DOMAIN}"
+DOMAIN="${DOMAIN:-board.bookingly.cloud}"
+SSL_EMAIL="${SSL_EMAIL:-admin@board.bookingly.cloud}"
 # -------------------------------------------------
 
 info "=== Iniciando despliegue de ForgeBoard ==="
@@ -143,6 +143,7 @@ DB_HOST=127.0.0.1
 DB_PORT=5432
 DJANGO_SECRET_KEY=$DJANGO_SECRET_KEY
 DJANGO_DEBUG=$([ "$DEV_MODE" = true ] && echo 'True' || echo 'False')
+DJANGO_ALLOWED_HOSTS=$DOMAIN
 EOF
     ok "Archivo .env creado en backend/"
 else
@@ -153,14 +154,20 @@ export DJANGO_SECRET_KEY
 export DB_ENGINE="django.db.backends.postgresql"
 export DB_NAME DB_USER DB_PASSWORD
 export DJANGO_DEBUG=$([ "$DEV_MODE" = true ] && echo "True" || echo "False")
+export DJANGO_ALLOWED_HOSTS="$DOMAIN"
 
 # -------------------------------------------------------
 # 5. Backend - Migraciones, static, superusuario
 # -------------------------------------------------------
 info "Ejecutando migraciones Django..."
+
+# Crear directorios necesarios con permisos correctos
+mkdir -p "$BACKEND_DIR/staticfiles"
+mkdir -p "$BACKEND_DIR/media"
+
 cd "$BACKEND_DIR"
-python manage.py collectstatic --noinput --clear 2>&1 | tail -1
-python manage.py migrate --noinput
+python manage.py collectstatic --noinput --clear 2>&1 | tail -1 || err "collectstatic falló"
+python manage.py migrate --noinput || err "migrate falló"
 ok "Migraciones aplicadas"
 
 # Crear superusuario por defecto si no existe
@@ -173,6 +180,10 @@ if not User.objects.filter(username='admin').exists():
 else:
     print('Superusuario ya existe')
 " 2>&1
+
+# Verificar que Django puede arrancar (detecta errores de importación/config)
+python manage.py check --deploy 2>&1 || err "Django check --deploy falló — revisa la configuración"
+ok "Django check superado"
 
 # -------------------------------------------------------
 # 6. Frontend - .env y build
@@ -198,7 +209,17 @@ if [ "$DEV_MODE" = false ]; then
 fi
 
 # -------------------------------------------------------
-# 7. Servicios systemd (solo producción)
+# 7. Asignar permisos al usuario www-data (ESENCIAL para evitar 502)
+# -------------------------------------------------------
+info "Asignando permisos a www-data..."
+chown -R www-data:www-data "$PROJECT_DIR"
+chmod -R 755 "$PROJECT_DIR"
+# Dar permisos de escritura en media/ y staticfiles/ para uploads
+chmod -R 775 "$BACKEND_DIR/media" "$BACKEND_DIR/staticfiles"
+ok "Permisos asignados a www-data"
+
+# -------------------------------------------------------
+# 8. Servicios systemd (solo producción)
 # -------------------------------------------------------
 if [ "$DEV_MODE" = false ]; then
     info "Configurando servicios systemd..."
@@ -215,9 +236,12 @@ User=www-data
 Group=www-data
 WorkingDirectory=$BACKEND_DIR
 EnvironmentFile=$ENV_FILE
-ExecStart=$VENV_DIR/bin/gunicorn config.wsgi:application --workers 4 --bind 127.0.0.1:$BACKEND_PORT --log-level=info
+Environment=HOME=/tmp
+ExecStart=$VENV_DIR/bin/gunicorn config.wsgi:application --workers 4 --bind 127.0.0.1:$BACKEND_PORT --log-level=info --umask=0022 --worker-tmp-dir /dev/shm
 Restart=always
 RestartSec=5
+StandardOutput=journal
+StandardError=journal
 
 [Install]
 WantedBy=multi-user.target
@@ -237,6 +261,8 @@ WorkingDirectory=$FRONTEND_DIR
 ExecStart=$(which npx) vite preview --port $FRONTEND_PORT --host 127.0.0.1
 Restart=always
 RestartSec=5
+StandardOutput=journal
+StandardError=journal
 
 [Install]
 WantedBy=multi-user.target
@@ -245,10 +271,23 @@ EOF
     systemctl daemon-reload
     systemctl enable forgeboard-backend forgeboard-frontend
     systemctl restart forgeboard-backend forgeboard-frontend
-    ok "Servicios systemd iniciados"
+
+    # Verificar que los servicios están corriendo
+    sleep 3
+    if systemctl is-active --quiet forgeboard-backend; then
+        ok "forgeboard-backend activo"
+    else
+        err "forgeboard-backend NO arrancó - revisa: journalctl -u forgeboard-backend --no-pager -n 50"
+    fi
+
+    if systemctl is-active --quiet forgeboard-frontend; then
+        ok "forgeboard-frontend activo"
+    else
+        err "forgeboard-frontend NO arrancó - revisa: journalctl -u forgeboard-frontend --no-pager -n 50"
+    fi
 
     # -------------------------------------------------------
-    # 8. Nginx
+    # 9. Nginx
     # -------------------------------------------------------
     info "Configurando nginx como proxy inverso..."
     NGINX_CONF="/etc/nginx/sites-available/forgeboard"
@@ -298,7 +337,7 @@ EOF
 
     ln -sf "$NGINX_CONF" /etc/nginx/sites-enabled/
     rm -f /etc/nginx/sites-enabled/default
-    nginx -t && systemctl reload nginx
+    nginx -t && systemctl restart nginx
     ok "Nginx configurado"
 
     # SSL con Let's Encrypt si el dominio es real
@@ -310,10 +349,29 @@ EOF
         systemctl enable certbot.timer 2>/dev/null || true
         ok "SSL configurado para $DOMAIN"
     fi
+
+    # -------------------------------------------------------
+    # 10. Health check - verificar que la API responde
+    # -------------------------------------------------------
+    info "Ejecutando health check..."
+    sleep 2
+    HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:$BACKEND_PORT/api/ 2>/dev/null || echo "000")
+    if [ "$HTTP_CODE" != "000" ] && [ "$HTTP_CODE" != "502" ]; then
+        ok "Backend responde en puerto $BACKEND_PORT (HTTP $HTTP_CODE)"
+    else
+        err "Backend NO responde en puerto $BACKEND_PORT (HTTP $HTTP_CODE) - revisa: journalctl -u forgeboard-backend --no-pager -n 50"
+    fi
+
+    HTTP_CODE_FE=$(curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:$FRONTEND_PORT/ 2>/dev/null || echo "000")
+    if [ "$HTTP_CODE_FE" != "000" ]; then
+        ok "Frontend responde en puerto $FRONTEND_PORT (HTTP $HTTP_CODE_FE)"
+    else
+        err "Frontend NO responde en puerto $FRONTEND_PORT"
+    fi
 fi
 
 # -------------------------------------------------------
-# 9. Resumen
+# 11. Resumen
 # -------------------------------------------------------
 echo ""
 echo -e "${GREEN}============================================${NC}"
