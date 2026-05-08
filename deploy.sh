@@ -42,12 +42,16 @@ info "Instalando paquetes del sistema..."
 apt-get update -qq
 apt-get install -y -qq \
     python3 python3-pip python3-venv \
-    nodejs npm \
     postgresql postgresql-client \
     nginx \
     git curl openssl
 
-ok "Paquetes del sistema instalados"
+# Node.js 22+ (necesario para Vite 8)
+if ! command -v node &>/dev/null || [ "$(node -v | cut -d. -f1 | tr -d v)" -lt 22 ]; then
+    curl -fsSL https://deb.nodesource.com/setup_22.x | bash -
+    apt-get install -y -qq nodejs
+fi
+ok "Node.js $(node -v) instalado"
 
 # -------------------------------------------------------
 # 2. PostgreSQL
