@@ -5,6 +5,10 @@ set -euo pipefail
 #  ForgeBoard - Script de despliegue para Ubuntu 22.04+
 #  Uso: sudo bash deploy.sh [--dev]
 #    --dev   modo desarrollo (sin nginx, sin systemd, sin gunicorn)
+#
+#  El script clona el repo automáticamente si no está en el
+#  directorio del proyecto. El destino se configura con
+#  INSTALL_DIR (default: /var/www/forgetboard).
 # =============================================================
 
 RED='\033[0;31m'; GREEN='\033[0;32m'; CYAN='\033[0;36m'; NC='\033[0m'
@@ -17,9 +21,31 @@ DEV_MODE=false
 
 [[ $EUID -ne 0 ]] && err "Ejecutar con sudo: sudo bash deploy.sh"
 
-PROJECT_DIR="$(cd "$(dirname "$0")" && pwd)"
+INSTALL_DIR="${INSTALL_DIR:-/var/www/forgetboard}"
+REPO_URL="${REPO_URL:-https://github.com/c010r/forgetboard.git}"
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+
+# Si el script NO está dentro del proyecto (no tiene backend/ y frontend/), clona el repo
+if [ ! -f "$SCRIPT_DIR/backend/manage.py" ] || [ ! -d "$SCRIPT_DIR/frontend/src" ]; then
+    info "No se detectó el proyecto en $SCRIPT_DIR"
+    if [ -d "$INSTALL_DIR" ]; then
+        info "El directorio $INSTALL_DIR ya existe, actualizando..."
+        cd "$INSTALL_DIR"
+        git pull
+    else
+        info "Clonando repositorio en $INSTALL_DIR..."
+        git clone "$REPO_URL" "$INSTALL_DIR"
+    fi
+    PROJECT_DIR="$INSTALL_DIR"
+else
+    PROJECT_DIR="$SCRIPT_DIR"
+fi
+
 BACKEND_DIR="$PROJECT_DIR/backend"
 FRONTEND_DIR="$PROJECT_DIR/frontend"
+
+info "Proyecto en: $PROJECT_DIR"
 
 # ----- Configuración (editar según entorno) -----
 DB_NAME="${DB_NAME:-forgeboard}"
