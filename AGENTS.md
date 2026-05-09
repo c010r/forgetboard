@@ -45,8 +45,6 @@ Crear una plataforma tipo Trello + Jira que permita gestionar distintos proyecto
 14. Sprints
 15. Backlog
 16. Roadmap e hitos
-17. Recursos del proyecto
-18. Registro de horas
 19. Notificaciones
 20. Actividad y auditoría
 21. Dashboard
@@ -85,8 +83,6 @@ Modelos requeridos:
 - Adjunto
 - Sprint
 - Hito
-- Recurso
-- RegistroTiempo
 - DependenciaTarea
 - Notificacion
 - Actividad
@@ -204,7 +200,6 @@ Crear una SPA moderna con:
 - Vista Kanban
 - Modal de tarea
 - Vista lista tipo Jira
-- Vista de recursos
 - Vista de reportes
 - Configuración
 
@@ -252,7 +247,6 @@ Crear:
 - /api/tareas/{id}/subtareas/
 - /api/tareas/{id}/checklists/
 - /api/sprints/
-- /api/recursos/
 - /api/documentos/
 - /api/notificaciones/
 - /api/reportes/dashboard/

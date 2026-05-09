@@ -31,7 +31,7 @@ TOKEN = data.get('access', '')
 check("Login JWT", code == 200 and bool(TOKEN))
 
 for path in ['usuarios/me/', 'espacios/', 'proyectos/', 'tableros/', 'columnas/',
-             'tareas/', 'sprints/', 'recursos/', 'documentos/', 'notificaciones/',
+             'tareas/', 'sprints/', 'documentos/', 'notificaciones/',
              'actividades/', 'reportes/dashboard/']:
     code, d = req('GET', path, token=TOKEN)
     check(f"GET /{path} => {code}", code == 200)
@@ -81,13 +81,6 @@ if code in [200, 201] and chk.get('id'):
     code2, _ = req('POST', 'tareas/checklist-items/', {'checklist': chk['id'], 'texto': 'Item 1'}, token=TOKEN)
     check(f"ChecklistItem => {code2}", code2 in [200, 201])
 
-code, _ = req('POST', 'recursos/registros-tiempo/', {'tarea': TID, 'horas': 2.5,
-    'descripcion': 'Desarrollo', 'fecha': '2026-05-07'}, token=TOKEN)
-check(f"Registro Tiempo => {code}", code in [200, 201])
-
-code, _ = req('POST', 'recursos/', {'nombre': 'Developer', 'tipo': 'humano', 'costo_hora': 50}, token=TOKEN)
-check(f"POST /recursos/ => {code}", code in [200, 201])
-
 code, _ = req('POST', 'sprints/', {'nombre': 'Sprint 1', 'proyecto': PROJ_ID,
     'fecha_inicio': '2026-05-01', 'fecha_fin': '2026-05-15'}, token=TOKEN)
 check(f"POST /sprints/ => {code}", code in [200, 201])
@@ -106,4 +99,4 @@ check(f"Dashboard OK", code == 200 and 'total_proyectos' in dash)
 code, _ = req('GET', 'actividades/', token=TOKEN)
 check(f"Actividades OK", code == 200)
 
-print(f"\n=== {ok}/28 tests OK ===")
+print(f"\n=== {ok}/25 tests OK ===")
