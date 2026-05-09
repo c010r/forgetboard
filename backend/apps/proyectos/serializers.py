@@ -16,14 +16,19 @@ class ProyectoSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Proyecto
-        fields = '__all__'
-        read_only_fields = ['id', 'fecha_creacion']
+        fields = ['id', 'nombre', 'descripcion', 'codigo', 'espacio', 'estado', 'prioridad',
+                  'responsable', 'responsable_nombre', 'fecha_inicio', 'fecha_fin_estimada',
+                  'fecha_fin_real', 'presupuesto_estimado', 'presupuesto_ejecutado',
+                  'porcentaje_avance', 'direccion', 'latitud', 'longitud', 'fecha_creacion',
+                  'miembros']
+        read_only_fields = ['id', 'fecha_creacion', 'porcentaje_avance', 'presupuesto_ejecutado', 'fecha_fin_real']
 
 
 class UnidadSerializer(serializers.ModelSerializer):
     class Meta:
         model = Unidad
-        fields = '__all__'
+        fields = ['id', 'proyecto', 'nombre', 'direccion', 'latitud', 'longitud',
+                  'estado_implementacion', 'tarea', 'fecha_implementacion', 'fecha_creacion']
         read_only_fields = ['id', 'fecha_creacion']
 
 

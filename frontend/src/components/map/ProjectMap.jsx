@@ -11,9 +11,12 @@ import toast from 'react-hot-toast'
 
 const uruguayCenter = [-32.5228, -55.7658]
 
+const COLORES_PERMITIDOS = ['#9ca3af', '#ef4444', '#3b82f6']
+
 function createColoredIcon(color) {
+  const safeColor = COLORES_PERMITIDOS.includes(color) ? color : '#9ca3af'
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="25" height="41" viewBox="0 0 25 41">
-    <path d="M12.5 0C5.6 0 0 5.6 0 12.5C0 21.9 12.5 41 12.5 41S25 21.9 25 12.5C25 5.6 19.4 0 12.5 0Z" fill="${color}" stroke="#fff" stroke-width="2"/>
+    <path d="M12.5 0C5.6 0 0 5.6 0 12.5C0 21.9 12.5 41 12.5 41S25 21.9 25 12.5C25 5.6 19.4 0 12.5 0Z" fill="${safeColor}" stroke="#fff" stroke-width="2"/>
     <circle cx="12.5" cy="12.5" r="5" fill="#fff"/>
   </svg>`
   return L.divIcon({ html: svg, iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [0, -41], className: '' })

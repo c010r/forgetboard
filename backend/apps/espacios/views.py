@@ -1,9 +1,12 @@
-from rest_framework import viewsets, permissions
+from rest_framework import viewsets, permissions, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from .models import EspacioTrabajo, MiembroEspacio
 from .serializers import EspacioTrabajoSerializer, MiembroEspacioSerializer
 from apps.usuarios.permissions import IsAdminOrReadOnly, IsEspacioMember
+
+
+ROLES_PERMITIDOS = ['miembro', 'invitado']
 
 
 class EspacioTrabajoViewSet(viewsets.ModelViewSet):
@@ -19,7 +22,14 @@ class EspacioTrabajoViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['post'])
     def agregar_miembro(self, request, pk=None):
         espacio = self.get_object()
-        serializer = MiembroEspacioSerializer(data=request.data)
+        rol = request.data.get('rol', 'miembro')
+        if rol not in ROLES_PERMITIDOS:
+            return Response({'error': f'Rol no permitido. Usa: {", ".join(ROLES_PERMITIDOS)}'}, status=400)
+        serializer = MiembroEspacioSerializer(data={
+            'espacio': espacio.id,
+            'usuario': request.data.get('usuario'),
+            'rol': rol,
+        })
         if serializer.is_valid():
             serializer.save(espacio=espacio)
             return Response(serializer.data, status=201)

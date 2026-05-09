@@ -5,10 +5,9 @@ export function extractResults(data) {
 }
 
 export function getErrorMessage(err) {
-  if (err.response?.data) {
-    if (typeof err.response.data === 'string') return err.response.data
-    const messages = Object.values(err.response.data).flat()
-    return messages.join(', ')
-  }
-  return err.message || 'Error de conexión'
+  if (err.response?.status === 400) return 'Verifica los datos ingresados'
+  if (err.response?.status === 403) return 'No tienes permisos para esta acción'
+  if (err.response?.status === 404) return 'El recurso no fue encontrado'
+  if (err.response?.status === 500) return 'Error interno del servidor'
+  return 'Error de conexión. Intenta nuevamente.'
 }

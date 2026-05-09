@@ -47,7 +47,9 @@ class TareaListSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Tarea
-        fields = ['id', 'codigo', 'titulo', 'tipo', 'estado', 'prioridad', 'responsable', 'responsable_nombre', 'columna', 'columna_nombre', 'proyecto', 'fecha_creacion', 'fecha_limite', 'porcentaje_avance', 'latitud', 'longitud', 'orden']
+        fields = ['id', 'codigo', 'titulo', 'tipo', 'estado', 'prioridad', 'responsable',
+                  'responsable_nombre', 'columna', 'columna_nombre', 'proyecto',
+                  'fecha_creacion', 'fecha_limite', 'porcentaje_avance', 'latitud', 'longitud', 'orden']
         read_only_fields = ['id', 'fecha_creacion']
 
 class TareaDetailSerializer(serializers.ModelSerializer):
@@ -62,7 +64,13 @@ class TareaDetailSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Tarea
-        fields = '__all__'
+        fields = ['id', 'codigo', 'titulo', 'descripcion', 'proyecto', 'tablero', 'columna',
+                  'columna_nombre', 'tipo', 'estado', 'prioridad', 'responsable', 'responsable_nombre',
+                  'creador', 'creador_nombre', 'etiquetas', 'sprint',
+                  'fecha_creacion', 'fecha_inicio', 'fecha_limite', 'fecha_cierre',
+                  'horas_estimadas', 'horas_trabajadas', 'porcentaje_avance',
+                  'latitud', 'longitud', 'orden',
+                  'subtareas', 'checklists', 'comentarios', 'adjuntos']
         read_only_fields = ['id', 'codigo', 'creador', 'fecha_creacion']
 
 class DependenciaTareaSerializer(serializers.ModelSerializer):

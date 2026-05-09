@@ -115,6 +115,9 @@ class TareaViewSet(viewsets.ModelViewSet):
         if serializer.is_valid():
             columna_id = serializer.validated_data['columna_id']
             orden = serializer.validated_data.get('orden', 0)
+            from apps.tableros.models import ColumnaTablero
+            if not ColumnaTablero.objects.filter(id=columna_id, tablero=tarea.tablero).exists():
+                return Response({'error': 'La columna no pertenece al tablero de la tarea'}, status=400)
             tarea.columna_id = columna_id
             tarea.orden = orden
             tarea.save()
@@ -205,6 +208,8 @@ class TareaViewSet(viewsets.ModelViewSet):
         usuario_id = request.data.get('usuario_id')
         if not usuario_id:
             return Response({'error': 'usuario_id requerido'}, status=400)
+        if not tarea.proyecto.miembros.filter(usuario_id=usuario_id).exists():
+            return Response({'error': 'El usuario no es miembro del proyecto'}, status=400)
         tarea.responsable_id = usuario_id
         tarea.save()
         Actividad.objects.create(
