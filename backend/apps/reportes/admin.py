@@ -1,1 +1,0 @@
-# Reportes no necesita admin
