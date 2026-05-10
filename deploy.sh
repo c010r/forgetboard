@@ -11,7 +11,11 @@ err()   { echo -e "${RED}[ERROR]${NC} $1"; exit 1; }
 PROJECT_DIR="$(cd "$(dirname "$0")" && pwd)"
 BACKEND_DIR="$PROJECT_DIR/backend"
 FRONTEND_DIR="$PROJECT_DIR/frontend"
-DOMAIN="board.bookingly.cloud"
+if [ -z "${1:-}" ]; then
+    echo "Uso: $0 <dominio>"
+    exit 1
+fi
+DOMAIN="$1"
 
 DB_NAME="forgeboard"
 DB_USER="forgeboard"
