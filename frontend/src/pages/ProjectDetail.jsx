@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useProject } from '../hooks/useProjects'
 import { useBoards, useCreateBoard } from '../hooks/useBoards'
@@ -26,9 +26,23 @@ export default function ProjectDetail() {
   const [newBoardModal, setNewBoardModal] = useState(false)
   const [view, setView] = useState('kanban')
   const [uaList, setUaList] = useState([])
+  const [uaSearch, setUaSearch] = useState('')
+  const [uaDept, setUaDept] = useState('')
 
   const board = boards?.[0]
   const [taskForm, setTaskForm] = useState({ titulo: '', descripcion: '', tipo: 'tarea', prioridad: 'media', latitud: '', longitud: '', ua_id: '' })
+
+  const uaDepts = useMemo(() => [...new Set(uaList.map((u) => u.departamento).filter(Boolean))].sort(), [uaList])
+
+  const filteredUA = useMemo(() => {
+    let result = uaList
+    if (uaSearch) {
+      const q = uaSearch.toLowerCase()
+      result = result.filter((u) => u.nombre.toLowerCase().includes(q) || (u.localidad || '').toLowerCase().includes(q))
+    }
+    if (uaDept) result = result.filter((u) => u.departamento === uaDept)
+    return result
+  }, [uaList, uaSearch, uaDept])
 
   useEffect(() => {
     api.get('/ua/')
@@ -193,14 +207,23 @@ export default function ProjectDetail() {
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Unidad Asistencial (UA)</label>
-            <select value={taskForm.ua_id} onChange={(e) => handleUnitChange(e.target.value)}
+            <div className="flex gap-2 mb-2">
+              <input value={uaSearch} onChange={(e) => setUaSearch(e.target.value)} placeholder="Buscar por nombre..."
+                className="flex-1 px-3 py-1.5 border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-800 dark:text-white rounded-lg text-sm" />
+              <select value={uaDept} onChange={(e) => setUaDept(e.target.value)}
+                className="px-3 py-1.5 border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-800 dark:text-white rounded-lg text-sm">
+                <option value="">Todos</option>
+                {uaDepts.map((d) => <option key={d} value={d}>{d}</option>)}
+              </select>
+            </div>
+            <select value={taskForm.ua_id} onChange={(e) => handleUnitChange(e.target.value)} size={5}
               className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-800 dark:text-white rounded-lg text-sm">
               <option value="">Sin unidad</option>
-              {uaList.map((ua) => (
+              {filteredUA.map((ua) => (
                 <option key={ua.id} value={ua.id}>{ua.nombre} ({ua.departamento})</option>
               ))}
             </select>
-            <p className="text-xs text-slate-400 mt-1">{uaList.length} unidades en catálogo</p>
+            <p className="text-xs text-slate-400 mt-1">{filteredUA.length} de {uaList.length} unidades</p>
           </div>
           <button type="submit" className="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700">Crear Tarea</button>
         </form>
