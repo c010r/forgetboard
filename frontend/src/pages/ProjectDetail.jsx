@@ -25,6 +25,7 @@ export default function ProjectDetail() {
   const [selectedTask, setSelectedTask] = useState(null)
   const [newTaskModal, setNewTaskModal] = useState(false)
   const [newBoardModal, setNewBoardModal] = useState(false)
+  const [asseModal, setAsseModal] = useState(false)
   const [view, setView] = useState('kanban')
   const [projectUnits, setProjectUnits] = useState([])
   const [catalogUnits, setCatalogUnits] = useState([])
