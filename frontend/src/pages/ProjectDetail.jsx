@@ -9,6 +9,7 @@ import Modal from '../components/common/Modal'
 import Badge from '../components/common/Badge'
 import Loading from '../components/common/Loading'
 import ProjectMap from '../components/map/ProjectMap'
+import AsseImporter from '../components/map/AsseImporter'
 import MembersPanel from '../components/projects/MembersPanel'
 import api from '../services/api'
 import toast from 'react-hot-toast'
@@ -24,18 +25,21 @@ export default function ProjectDetail() {
   const [selectedTask, setSelectedTask] = useState(null)
   const [newTaskModal, setNewTaskModal] = useState(false)
   const [newBoardModal, setNewBoardModal] = useState(false)
+  const [asseModal, setAsseModal] = useState(false)
   const [view, setView] = useState('kanban')
   const [projectUnits, setProjectUnits] = useState([])
 
   const board = boards?.[0]
 
-  useEffect(() => {
+  const loadUnits = () => {
     if (id) {
       api.get('/unidades/', { params: { proyecto: id } })
         .then((res) => setProjectUnits(res.data.results || res.data || []))
         .catch(() => {})
     }
-  }, [id])
+  }
+
+  useEffect(loadUnits, [id])
 
   const handleCreateBoard = async (e) => {
     e.preventDefault()
@@ -118,6 +122,10 @@ export default function ProjectDetail() {
         </form>
       </Modal>
 
+      <Modal isOpen={asseModal} onClose={() => setAsseModal(false)} title="Importar Unidades ASSE" size="lg">
+        <AsseImporter projectId={id} onImported={() => { loadUnits(); setAsseModal(false) }} />
+      </Modal>
+
       <Modal isOpen={newTaskModal} onClose={() => setNewTaskModal(false)} title="Nueva Tarea">
         <form onSubmit={(e) => { e.preventDefault(); const data = Object.fromEntries(new FormData(e.target)); handleCreateTask(data) }} className="space-y-4">
           <div>
@@ -159,17 +167,24 @@ export default function ProjectDetail() {
               <input name="longitud" step="any" placeholder="ej: -56.1645" className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-800 dark:text-white rounded-lg text-sm" />
             </div>
           </div>
-          {projectUnits.length > 0 && (
-            <div>
-              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Vincular Unidad</label>
-              <select name="unidad_id" className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-800 dark:text-white rounded-lg text-sm">
+          <div>
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Unidad Asistencial</label>
+            <div className="flex gap-2">
+              <select name="unidad_id" className="flex-1 px-3 py-2 border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-800 dark:text-white rounded-lg text-sm">
                 <option value="">Sin unidad</option>
                 {projectUnits.filter((u) => !u.tarea).map((u) => (
                   <option key={u.id} value={u.id}>{u.nombre}</option>
                 ))}
               </select>
+              <button type="button" onClick={() => setAsseModal(true)}
+                className="px-3 py-2 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700 whitespace-nowrap">
+                + ASSE
+              </button>
             </div>
-          )}
+            {projectUnits.length === 0 && (
+              <p className="text-xs text-slate-400 mt-1">No hay unidades cargadas. Usá el botón ASSE para importar del catálogo.</p>
+            )}
+          </div>
           <button type="submit" className="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700">Crear Tarea</button>
         </form>
       </Modal>
