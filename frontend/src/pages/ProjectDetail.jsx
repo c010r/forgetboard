@@ -54,13 +54,18 @@ export default function ProjectDetail() {
   }
 
   const handleUnitChange = (unidadId) => {
-    const unit = projectUnits.find((u) => u.id === parseInt(unidadId))
-    setTaskForm({
-      ...taskForm,
-      unidad_id: unidadId,
-      latitud: unit ? String(unit.latitud) : '',
-      longitud: unit ? String(unit.longitud) : '',
-    })
+    const id = Number(unidadId)
+    const unit = projectUnits.find((u) => Number(u.id) === id)
+    if (!unit) {
+      setTaskForm({ ...taskForm, unidad_id: '', latitud: '', longitud: '' })
+    } else {
+      setTaskForm({
+        ...taskForm,
+        unidad_id: unidadId,
+        latitud: unit.latitud != null ? String(Number(unit.latitud)) : '',
+        longitud: unit.longitud != null ? String(Number(unit.longitud)) : '',
+      })
+    }
   }
 
   const handleCreateTask = async () => {
