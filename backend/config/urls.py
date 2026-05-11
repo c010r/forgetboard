@@ -16,6 +16,7 @@ urlpatterns = [
     path('api/reportes/', include('apps.reportes.urls')),
     path('api/documentos/', include('apps.proyectos.urls_documentos')),
     path('api/unidades/', include('apps.proyectos.urls_unidades')),
+    path('api/plantillas/', include('apps.proyectos.urls_plantillas')),
 ]
 
 if settings.DEBUG:

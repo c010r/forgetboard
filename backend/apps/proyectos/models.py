@@ -77,6 +77,22 @@ class MiembroProyecto(models.Model):
         return f"{self.usuario.username} - {self.proyecto.nombre}"
 
 
+class PlantillaProyecto(models.Model):
+    nombre = models.CharField(max_length=200)
+    descripcion = models.TextField(blank=True, default='')
+    mostrar_mapa = models.BooleanField(default=True)
+    columnas = models.JSONField(default=list, help_text='Lista de columnas: [{"nombre": ..., "orden": ..., "color": ...}]')
+    fecha_creacion = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'Plantilla de Proyecto'
+        verbose_name_plural = 'Plantillas de Proyecto'
+        ordering = ['nombre']
+
+    def __str__(self):
+        return self.nombre
+
+
 class DocumentoProyecto(models.Model):
     TIPOS = [
         ('documento', 'Documento'),

@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Proyecto, MiembroProyecto, DocumentoProyecto, Unidad
+from .models import Proyecto, MiembroProyecto, DocumentoProyecto, Unidad, PlantillaProyecto
 
 class MiembroProyectoSerializer(serializers.ModelSerializer):
     usuario_nombre = serializers.CharField(source='usuario.username', read_only=True)
@@ -13,6 +13,7 @@ class MiembroProyectoSerializer(serializers.ModelSerializer):
 class ProyectoSerializer(serializers.ModelSerializer):
     miembros = MiembroProyectoSerializer(many=True, read_only=True)
     responsable_nombre = serializers.CharField(source='responsable.username', read_only=True, allow_null=True)
+    plantilla_id = serializers.IntegerField(write_only=True, required=False, allow_null=True)
 
     class Meta:
         model = Proyecto
@@ -20,7 +21,7 @@ class ProyectoSerializer(serializers.ModelSerializer):
                   'responsable', 'responsable_nombre', 'fecha_inicio', 'fecha_fin_estimada',
                   'fecha_fin_real', 'presupuesto_estimado', 'presupuesto_ejecutado',
                   'porcentaje_avance', 'direccion', 'latitud', 'longitud', 'fecha_creacion',
-                  'plantilla', 'mostrar_mapa', 'miembros']
+                  'plantilla', 'mostrar_mapa', 'plantilla_id', 'miembros']
         read_only_fields = ['id', 'fecha_creacion', 'porcentaje_avance', 'presupuesto_ejecutado', 'fecha_fin_real']
 
 
@@ -29,6 +30,13 @@ class UnidadSerializer(serializers.ModelSerializer):
         model = Unidad
         fields = ['id', 'proyecto', 'nombre', 'direccion', 'latitud', 'longitud',
                   'estado_implementacion', 'tarea', 'fecha_implementacion', 'fecha_creacion']
+        read_only_fields = ['id', 'fecha_creacion']
+
+
+class PlantillaProyectoSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PlantillaProyecto
+        fields = ['id', 'nombre', 'descripcion', 'mostrar_mapa', 'columnas', 'fecha_creacion']
         read_only_fields = ['id', 'fecha_creacion']
 
 

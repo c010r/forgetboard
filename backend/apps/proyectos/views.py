@@ -2,8 +2,8 @@ from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from django_filters import rest_framework as filters
-from .models import Proyecto, MiembroProyecto, DocumentoProyecto, Unidad
-from .serializers import ProyectoSerializer, MiembroProyectoSerializer, DocumentoProyectoSerializer, UnidadSerializer
+from .models import Proyecto, MiembroProyecto, DocumentoProyecto, Unidad, PlantillaProyecto
+from .serializers import ProyectoSerializer, MiembroProyectoSerializer, DocumentoProyectoSerializer, UnidadSerializer, PlantillaProyectoSerializer
 from apps.tableros.models import Tablero, ColumnaTablero
 from apps.actividades.models import Actividad
 from apps.usuarios.permissions import IsAdminOrReadOnly, IsProjectMemberOrAdmin
@@ -25,28 +25,27 @@ class ProyectoViewSet(viewsets.ModelViewSet):
     search_fields = ['nombre', 'descripcion', 'codigo']
     permission_classes = [IsProjectMemberOrAdmin]
 
-    TEMPLATE_COLUMNAS = {
-        'implementacion': [
-            {'nombre': 'SIN IMPLEMENTAR', 'orden': 0, 'color': '#6b7280'},
-            {'nombre': 'EN IMPLEMENTACIÓN', 'orden': 1, 'color': '#ef4444'},
-            {'nombre': 'IMPLEMENTADA', 'orden': 2, 'color': '#3b82f6'},
-        ],
-    }
-
     def perform_create(self, serializer):
+        plantilla_id = serializer.validated_data.pop('plantilla_id', None)
         proyecto = serializer.save()
         MiembroProyecto.objects.create(proyecto=proyecto, usuario=self.request.user, rol='gerente_proyecto')
-        if proyecto.plantilla == 'implementacion':
-            proyecto.mostrar_mapa = True
-            proyecto.save(update_fields=['mostrar_mapa'])
-            tablero = Tablero.objects.create(
-                nombre='Tablero Principal',
-                proyecto=proyecto,
-                tipo='kanban',
-                creador=self.request.user,
-            )
-            for col_data in self.TEMPLATE_COLUMNAS['implementacion']:
-                ColumnaTablero.objects.create(tablero=tablero, **col_data)
+        if plantilla_id:
+            try:
+                plantilla = PlantillaProyecto.objects.get(id=plantilla_id)
+                if plantilla.mostrar_mapa:
+                    proyecto.mostrar_mapa = True
+                    proyecto.save(update_fields=['mostrar_mapa'])
+                if plantilla.columnas:
+                    tablero = Tablero.objects.create(
+                        nombre='Tablero Principal',
+                        proyecto=proyecto,
+                        tipo='kanban',
+                        creador=self.request.user,
+                    )
+                    for col_data in plantilla.columnas:
+                        ColumnaTablero.objects.create(tablero=tablero, **col_data)
+            except PlantillaProyecto.DoesNotExist:
+                pass
         Actividad.objects.create(
             usuario=self.request.user,
             proyecto=proyecto,
@@ -111,3 +110,11 @@ class UnidadViewSet(viewsets.ModelViewSet):
         if user.rol == 'administrador':
             return qs
         return qs.filter(proyecto__miembros__usuario=user).distinct()
+
+
+class PlantillaProyectoViewSet(viewsets.ModelViewSet):
+    queryset = PlantillaProyecto.objects.all()
+    serializer_class = PlantillaProyectoSerializer
+    permission_classes = [IsProjectMemberOrAdmin]
+    search_fields = ['nombre']
+    ordering_fields = ['nombre', 'fecha_creacion']

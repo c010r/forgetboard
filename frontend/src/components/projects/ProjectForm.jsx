@@ -1,9 +1,5 @@
 import { useState, useEffect } from 'react'
-
-const TEMPLATES = [
-  { value: 'vacia', label: 'Vacío', desc: 'Proyecto sin tablero predefinido' },
-  { value: 'implementacion', label: 'Implementación', desc: 'Tablero con columnas: SIN IMPLEMENTAR, EN IMPLEMENTACIÓN, IMPLEMENTADA + mapa' },
-]
+import api from '../../services/api'
 
 const initialData = {
   nombre: '',
@@ -14,13 +10,20 @@ const initialData = {
   fecha_inicio: '',
   fecha_fin_estimada: '',
   presupuesto_estimado: '',
-  plantilla: 'vacia',
+  plantilla_id: '',
   mostrar_mapa: true,
 }
 
 export default function ProjectForm({ onSubmit, initial, onCancel }) {
   const [form, setForm] = useState(initialData)
+  const [templates, setTemplates] = useState([])
   const isEditing = !!initial
+
+  useEffect(() => {
+    api.get('/plantillas/')
+      .then((res) => setTemplates(res.data.results || res.data || []))
+      .catch(() => {})
+  }, [])
 
   useEffect(() => {
     if (initial) setForm({ ...initialData, ...initial })
@@ -39,6 +42,8 @@ export default function ProjectForm({ onSubmit, initial, onCancel }) {
     delete data.presupuesto_ejecutado
     delete data.porcentaje_avance
     delete data.miembros
+    if (data.plantilla_id) data.plantilla_id = parseInt(data.plantilla_id)
+    else delete data.plantilla_id
     onSubmit(data)
   }
 
@@ -101,10 +106,11 @@ export default function ProjectForm({ onSubmit, initial, onCancel }) {
         {!isEditing && (
           <div className="col-span-2">
             <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Plantilla</label>
-            <select name="plantilla" value={form.plantilla} onChange={handleChange}
+            <select name="plantilla_id" value={form.plantilla_id} onChange={handleChange}
               className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-800 dark:text-white rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
-              {TEMPLATES.map((t) => (
-                <option key={t.value} value={t.value}>{t.label} — {t.desc}</option>
+              <option value="">Sin plantilla</option>
+              {templates.map((t) => (
+                <option key={t.id} value={t.id}>{t.nombre} — {t.descripcion || t.columnas?.length + ' columnas'}</option>
               ))}
             </select>
           </div>

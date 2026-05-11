@@ -2,6 +2,9 @@ import { useState, useEffect } from 'react'
 import api from '../services/api'
 import { useAuth } from '../context/AuthContext'
 import { useTheme } from '../context/ThemeContext'
+import { useTemplates, useCreateTemplate, useUpdateTemplate, useDeleteTemplate } from '../hooks/useTemplates'
+import Modal from '../components/common/Modal'
+import TemplateForm from '../components/projects/TemplateForm'
 import toast from 'react-hot-toast'
 
 export default function Settings() {
@@ -9,6 +12,12 @@ export default function Settings() {
   const { dark, toggle } = useTheme()
   const [tab, setTab] = useState('perfil')
   const [profile, setProfile] = useState({ first_name: '', last_name: '', email: '', telefono: '' })
+  const { data: templates, isLoading: templatesLoading } = useTemplates()
+  const createTemplate = useCreateTemplate()
+  const updateTemplate = useUpdateTemplate()
+  const deleteTemplate = useDeleteTemplate()
+  const [templateModal, setTemplateModal] = useState(false)
+  const [editTemplate, setEditTemplate] = useState(null)
 
   useEffect(() => {
     if (user) {
@@ -56,10 +65,10 @@ export default function Settings() {
       <h1 className="text-2xl font-bold text-slate-800 dark:text-white">Configuración</h1>
 
       <div className="flex gap-2 border-b border-slate-200 dark:border-slate-700 pb-2">
-        {['perfil', 'apariencia', 'datos'].map((t) => (
+        {['perfil', 'apariencia', 'plantillas', 'datos'].map((t) => (
           <button key={t} onClick={() => setTab(t)}
             className={`px-4 py-1.5 text-sm rounded-t capitalize ${tab === t ? 'bg-white dark:bg-slate-800 border border-b-white dark:border-b-slate-800 border-slate-200 dark:border-slate-700 font-medium text-blue-600 dark:text-blue-400' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700'}`}>
-            {t === 'perfil' ? 'Mi Perfil' : t === 'apariencia' ? 'Apariencia' : 'Datos de Prueba'}
+            {t === 'perfil' ? 'Mi Perfil' : t === 'apariencia' ? 'Apariencia' : t === 'plantillas' ? 'Plantillas' : 'Datos de Prueba'}
           </button>
         ))}
       </div>
@@ -120,6 +129,48 @@ export default function Settings() {
         </div>
       )}
 
+      {tab === 'plantillas' && (
+        <div>
+          <div className="flex items-center justify-between mb-4">
+            <p className="text-sm text-slate-500 dark:text-slate-400">Gestioná las plantillas disponibles al crear proyectos.</p>
+            <button onClick={() => { setEditTemplate(null); setTemplateModal(true) }}
+              className="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700">+ Nueva Plantilla</button>
+          </div>
+          {templatesLoading ? (
+            <div className="text-center py-8 text-sm text-slate-400">Cargando...</div>
+          ) : templates?.length === 0 ? (
+            <div className="text-center py-8 text-sm text-slate-400">Sin plantillas</div>
+          ) : (
+            <div className="grid gap-3">
+              {(templates || []).map((t) => (
+                <div key={t.id} className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4">
+                  <div className="flex items-start justify-between mb-2">
+                    <div>
+                      <h3 className="font-semibold text-slate-800 dark:text-white">{t.nombre}</h3>
+                      {t.descripcion && <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{t.descripcion}</p>}
+                    </div>
+                    <div className="flex gap-2">
+                      <button onClick={() => { setEditTemplate(t); setTemplateModal(true) }}
+                        className="text-xs text-blue-600 hover:text-blue-800">✏️</button>
+                      <button onClick={() => { if (confirm('¿Eliminar plantilla?')) deleteTemplate.mutateAsync(t.id) }}
+                        className="text-xs text-red-500 hover:text-red-700">🗑️</button>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 text-xs text-slate-500">
+                    {t.columnas?.length > 0 ? t.columnas.map((c, i) => (
+                      <span key={i} className="px-2 py-0.5 rounded text-white text-xs" style={{ backgroundColor: c.color }}>
+                        {c.nombre}
+                      </span>
+                    )) : <span className="italic">Sin columnas</span>}
+                    {t.mostrar_mapa && <span className="ml-auto text-blue-500">🗺️ Mapa</span>}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
       {tab === 'datos' && (
         <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-6 max-w-lg">
           <h3 className="font-semibold text-slate-700 dark:text-slate-200 mb-2">Datos de Demostración</h3>
@@ -129,6 +180,17 @@ export default function Settings() {
           </button>
         </div>
       )}
+
+      <Modal isOpen={templateModal} onClose={() => { setTemplateModal(false); setEditTemplate(null) }} title={editTemplate ? 'Editar Plantilla' : 'Nueva Plantilla'}>
+        <TemplateForm
+          onSubmit={editTemplate
+            ? (data) => updateTemplate.mutateAsync({ id: editTemplate.id, data }, { onSuccess: () => { setTemplateModal(false); setEditTemplate(null) } })
+            : (data) => createTemplate.mutateAsync(data, { onSuccess: () => setTemplateModal(false) })
+          }
+          initial={editTemplate}
+          onCancel={() => { setTemplateModal(false); setEditTemplate(null) }}
+        />
+      </Modal>
     </div>
   )
 }
