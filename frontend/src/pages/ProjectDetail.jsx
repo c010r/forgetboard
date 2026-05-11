@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useProject } from '../hooks/useProjects'
 import { useBoards, useCreateBoard } from '../hooks/useBoards'
@@ -25,12 +25,32 @@ export default function ProjectDetail() {
   const [selectedTask, setSelectedTask] = useState(null)
   const [newTaskModal, setNewTaskModal] = useState(false)
   const [newBoardModal, setNewBoardModal] = useState(false)
-  const [asseModal, setAsseModal] = useState(false)
   const [view, setView] = useState('kanban')
   const [projectUnits, setProjectUnits] = useState([])
+  const [catalogUnits, setCatalogUnits] = useState([])
 
   const board = boards?.[0]
-  const [taskForm, setTaskForm] = useState({ titulo: '', descripcion: '', tipo: 'tarea', prioridad: 'media', latitud: '', longitud: '', unidad_id: '' })
+  const [taskForm, setTaskForm] = useState({ titulo: '', descripcion: '', tipo: 'tarea', prioridad: 'media', latitud: '', longitud: '', unidad_key: '' })
+
+  const importedNames = useMemo(() => new Set(projectUnits.map((u) => u.nombre.toLowerCase())), [projectUnits])
+
+  const allUnitOptions = useMemo(() => {
+    const seen = new Set()
+    const result = []
+    for (const u of projectUnits) {
+      const key = `imported-${u.id}`
+      result.push({ key, label: u.nombre, imported: true, data: u, lat: u.latitud, lng: u.longitud })
+      seen.add(u.nombre.toLowerCase())
+    }
+    for (const u of catalogUnits) {
+      const name = u.nombre.trim()
+      if (!name || seen.has(name.toLowerCase())) continue
+      seen.add(name.toLowerCase())
+      result.push({ key: `catalog-${name}`, label: name, imported: false, data: u, lat: u.latitud, lng: u.longitud })
+    }
+    result.sort((a, b) => a.label.localeCompare(b.label))
+    return result
+  }, [projectUnits, catalogUnits])
 
   const loadUnits = () => {
     if (id) {
@@ -42,8 +62,31 @@ export default function ProjectDetail() {
 
   useEffect(loadUnits, [id])
 
+  useEffect(() => {
+    fetch('/unidades.geojson')
+      .then((r) => r.json())
+      .then((geo) => {
+        const units = geo.features
+          .filter((f) => f.properties && f.properties.latlong)
+          .map((f) => {
+            const p = f.properties
+            const [lat, lng] = (p.latlong || '').split(',').map(parseFloat)
+            return {
+              nombre: p.nombre || '',
+              direccion: [p.calle, p.numpuerta].filter(Boolean).join(' '),
+              latitud: lat,
+              longitud: lng,
+              cerrada: p.cerrada === 'SI',
+            }
+          })
+          .filter((u) => !u.cerrada && u.nombre && u.latitud && u.longitud)
+        setCatalogUnits(units)
+      })
+      .catch(() => {})
+  }, [])
+
   const resetTaskForm = () => {
-    setTaskForm({ titulo: '', descripcion: '', tipo: 'tarea', prioridad: 'media', latitud: '', longitud: '', unidad_id: '' })
+    setTaskForm({ titulo: '', descripcion: '', tipo: 'tarea', prioridad: 'media', latitud: '', longitud: '', unidad_key: '' })
   }
 
   const handleCreateBoard = async (e) => {
@@ -53,17 +96,16 @@ export default function ProjectDetail() {
     setNewBoardModal(false)
   }
 
-  const handleUnitChange = (unidadId) => {
-    const id = Number(unidadId)
-    const unit = projectUnits.find((u) => Number(u.id) === id)
-    if (!unit) {
-      setTaskForm({ ...taskForm, unidad_id: '', latitud: '', longitud: '' })
+  const handleUnitChange = (key) => {
+    const opt = allUnitOptions.find((o) => o.key === key)
+    if (!opt) {
+      setTaskForm({ ...taskForm, unidad_key: '', latitud: '', longitud: '' })
     } else {
       setTaskForm({
         ...taskForm,
-        unidad_id: unidadId,
-        latitud: unit.latitud != null ? String(Number(unit.latitud)) : '',
-        longitud: unit.longitud != null ? String(Number(unit.longitud)) : '',
+        unidad_key: key,
+        latitud: opt.lat != null ? String(Number(opt.lat)) : '',
+        longitud: opt.lng != null ? String(Number(opt.lng)) : '',
       })
     }
   }
@@ -82,10 +124,30 @@ export default function ProjectDetail() {
     }
     if (taskForm.latitud) payload.latitud = parseFloat(taskForm.latitud)
     if (taskForm.longitud) payload.longitud = parseFloat(taskForm.longitud)
-    if (taskForm.unidad_id) payload.unidad_id = parseInt(taskForm.unidad_id)
+
+    const opt = allUnitOptions.find((o) => o.key === taskForm.unidad_key)
+    if (opt) {
+      if (opt.imported) {
+        payload.unidad_id = opt.data.id
+      } else {
+        try {
+          const newUnit = await api.post('/unidades/', {
+            proyecto: parseInt(id),
+            nombre: opt.label,
+            direccion: opt.data.direccion || '',
+            latitud: opt.lat,
+            longitud: opt.lng,
+            estado_implementacion: 'a_implementar',
+          })
+          payload.unidad_id = newUnit.data.id
+        } catch { /* fallback: crear tarea sin unidad */ }
+      }
+    }
+
     await createTask.mutateAsync(payload)
     setNewTaskModal(false)
     resetTaskForm()
+    loadUnits()
   }
 
   if (isLoading) return <Loading fullPage />
@@ -203,22 +265,20 @@ export default function ProjectDetail() {
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Unidad Asistencial</label>
-            <div className="flex gap-2">
-              <select value={taskForm.unidad_id} onChange={(e) => handleUnitChange(e.target.value)}
-                className="flex-1 px-3 py-2 border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-800 dark:text-white rounded-lg text-sm">
-                <option value="">Sin unidad</option>
-                {projectUnits.filter((u) => !u.tarea).map((u) => (
-                  <option key={u.id} value={u.id}>{u.nombre}</option>
-                ))}
-              </select>
-              <button type="button" onClick={() => { setNewTaskModal(false); setAsseModal(true) }}
-                className="px-3 py-2 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700 whitespace-nowrap">
-                + ASSE
-              </button>
-            </div>
-            {projectUnits.length === 0 && (
-              <p className="text-xs text-slate-400 mt-1">No hay unidades cargadas. Usá el botón ASSE para importar del catálogo.</p>
-            )}
+            <select value={taskForm.unidad_key} onChange={(e) => handleUnitChange(e.target.value)}
+              className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-800 dark:text-white rounded-lg text-sm">
+              <option value="">Sin unidad</option>
+              {allUnitOptions.map((opt) => (
+                <option key={opt.key} value={opt.key}>
+                  {opt.label}{opt.imported ? ' (importada)' : ''}
+                </option>
+              ))}
+            </select>
+            <p className="text-xs text-slate-400 mt-1">
+              {allUnitOptions.length - projectUnits.length} unidades disponibles del catálogo ASSE
+              {projectUnits.length > 0 && ` · ${projectUnits.length} ya importadas`}
+              <button type="button" onClick={() => { setNewTaskModal(false); setAsseModal(true) }} className="ml-2 text-blue-600 hover:text-blue-800">Importar más</button>
+            </p>
           </div>
           <button type="submit" className="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700">Crear Tarea</button>
         </form>
