@@ -23,6 +23,7 @@ pip install -q --upgrade pip
 pip install -q -r requirements.txt
 python manage.py migrate --noinput
 python manage.py collectstatic --noinput --clear | tail -1
+python manage.py cargar_ua 2>/dev/null || true
 ok "Backend actualizado"
 
 info "Actualizando frontend..."
