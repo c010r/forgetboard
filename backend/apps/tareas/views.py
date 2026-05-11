@@ -5,6 +5,7 @@ from django.db import models as django_models
 from django_filters import rest_framework as filters
 from .models import Tarea, Subtarea, Checklist, ChecklistItem, Comentario, Etiqueta, Adjunto, DependenciaTarea
 from apps.proyectos.models import Unidad
+from apps.proyectos.serializers import UnidadSerializer
 from .serializers import (
     TareaListSerializer, TareaDetailSerializer, TareaMoveSerializer,
     SubtareaSerializer, ChecklistSerializer, ChecklistItemSerializer,

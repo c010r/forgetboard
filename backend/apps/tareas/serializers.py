@@ -1,5 +1,6 @@
 from rest_framework import serializers
 from .models import Tarea, Subtarea, Checklist, ChecklistItem, Comentario, Etiqueta, Adjunto, DependenciaTarea
+from apps.proyectos.models import Unidad
 
 class EtiquetaSerializer(serializers.ModelSerializer):
     class Meta:
@@ -61,6 +62,8 @@ class TareaDetailSerializer(serializers.ModelSerializer):
     responsable_nombre = serializers.CharField(source='responsable.username', read_only=True, allow_null=True)
     creador_nombre = serializers.CharField(source='creador.username', read_only=True)
     columna_nombre = serializers.CharField(source='columna.nombre', read_only=True)
+    unidades = serializers.SerializerMethodField()
+    unidad_id = serializers.IntegerField(write_only=True, required=False, allow_null=True)
 
     class Meta:
         model = Tarea
@@ -70,8 +73,29 @@ class TareaDetailSerializer(serializers.ModelSerializer):
                   'fecha_creacion', 'fecha_inicio', 'fecha_limite', 'fecha_cierre',
                   'horas_estimadas', 'horas_trabajadas', 'porcentaje_avance',
                   'latitud', 'longitud', 'orden',
-                  'subtareas', 'checklists', 'comentarios', 'adjuntos']
+                  'subtareas', 'checklists', 'comentarios', 'adjuntos', 'unidades', 'unidad_id']
         read_only_fields = ['id', 'codigo', 'creador', 'fecha_creacion']
+
+    def get_unidades(self, obj):
+        from apps.proyectos.serializers import UnidadSerializer
+        unidades = obj.unidades.all()
+        return UnidadSerializer(unidades, many=True).data
+
+    def create(self, validated_data):
+        unidad_id = validated_data.pop('unidad_id', None)
+        tarea = super().create(validated_data)
+        if unidad_id:
+            Unidad.objects.filter(id=unidad_id, proyecto=tarea.proyecto).update(tarea=tarea)
+        return tarea
+
+    def update(self, instance, validated_data):
+        unidad_id = validated_data.pop('unidad_id', None)
+        tarea = super().update(instance, validated_data)
+        if unidad_id is not None:
+            Unidad.objects.filter(tarea=tarea).update(tarea=None)
+            if unidad_id:
+                Unidad.objects.filter(id=unidad_id, proyecto=tarea.proyecto).update(tarea=tarea)
+        return tarea
 
 class DependenciaTareaSerializer(serializers.ModelSerializer):
     class Meta:

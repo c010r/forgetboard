@@ -1,5 +1,10 @@
 import { useState, useEffect } from 'react'
 
+const TEMPLATES = [
+  { value: 'vacia', label: 'Vacío', desc: 'Proyecto sin tablero predefinido' },
+  { value: 'implementacion', label: 'Implementación', desc: 'Tablero con columnas: SIN IMPLEMENTAR, EN IMPLEMENTACIÓN, IMPLEMENTADA + mapa' },
+]
+
 const initialData = {
   nombre: '',
   descripcion: '',
@@ -9,17 +14,21 @@ const initialData = {
   fecha_inicio: '',
   fecha_fin_estimada: '',
   presupuesto_estimado: '',
+  plantilla: 'vacia',
+  mostrar_mapa: true,
 }
 
 export default function ProjectForm({ onSubmit, initial, onCancel }) {
   const [form, setForm] = useState(initialData)
+  const isEditing = !!initial
 
   useEffect(() => {
     if (initial) setForm({ ...initialData, ...initial })
   }, [initial])
 
   const handleChange = (e) => {
-    setForm({ ...form, [e.target.name]: e.target.value })
+    const value = e.target.type === 'checkbox' ? e.target.checked : e.target.value
+    setForm({ ...form, [e.target.name]: value })
   }
 
   const handleSubmit = (e) => {
@@ -29,6 +38,7 @@ export default function ProjectForm({ onSubmit, initial, onCancel }) {
     else delete data.presupuesto_estimado
     delete data.presupuesto_ejecutado
     delete data.porcentaje_avance
+    delete data.miembros
     onSubmit(data)
   }
 
@@ -88,6 +98,24 @@ export default function ProjectForm({ onSubmit, initial, onCancel }) {
           <input type="number" name="presupuesto_estimado" value={form.presupuesto_estimado} onChange={handleChange}
             className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-800 dark:text-white rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400" />
         </div>
+        {!isEditing && (
+          <div className="col-span-2">
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Plantilla</label>
+            <select name="plantilla" value={form.plantilla} onChange={handleChange}
+              className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-800 dark:text-white rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
+              {TEMPLATES.map((t) => (
+                <option key={t.value} value={t.value}>{t.label} — {t.desc}</option>
+              ))}
+            </select>
+          </div>
+        )}
+        {isEditing && (
+          <div className="col-span-2 flex items-center gap-3 pt-2">
+            <input type="checkbox" name="mostrar_mapa" checked={form.mostrar_mapa} onChange={handleChange}
+              className="rounded border-slate-300 w-4 h-4" />
+            <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Mostrar pestaña Mapa en el proyecto</label>
+          </div>
+        )}
       </div>
       <div className="flex justify-end gap-3 pt-2">
         <button type="button" onClick={onCancel}

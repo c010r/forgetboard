@@ -20,7 +20,7 @@ class ProyectoSerializer(serializers.ModelSerializer):
                   'responsable', 'responsable_nombre', 'fecha_inicio', 'fecha_fin_estimada',
                   'fecha_fin_real', 'presupuesto_estimado', 'presupuesto_ejecutado',
                   'porcentaje_avance', 'direccion', 'latitud', 'longitud', 'fecha_creacion',
-                  'miembros']
+                  'plantilla', 'mostrar_mapa', 'miembros']
         read_only_fields = ['id', 'fecha_creacion', 'porcentaje_avance', 'presupuesto_ejecutado', 'fecha_fin_real']
 
 

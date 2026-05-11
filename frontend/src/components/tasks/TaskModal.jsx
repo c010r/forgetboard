@@ -1,8 +1,9 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Modal from '../common/Modal'
 import Badge from '../common/Badge'
 import { useTask, useUpdateTask, useDeleteTask, useAddComment, useAddSubtask } from '../../hooks/useTasks'
 import { useTaskComments } from '../../hooks/useTasks'
+import api from '../../services/api'
 
 export default function TaskModal({ taskId, isOpen, onClose }) {
   const { data: task, isLoading } = useTask(taskId)
@@ -11,16 +12,27 @@ export default function TaskModal({ taskId, isOpen, onClose }) {
   const deleteTask = useDeleteTask()
   const addComment = useAddComment()
   const addSubtask = useAddSubtask()
+  const [projectUnits, setProjectUnits] = useState([])
 
 
   const [newComment, setNewComment] = useState('')
   const [editing, setEditing] = useState(false)
   const [editForm, setEditForm] = useState({})
   const [subtaskTitle, setSubtaskTitle] = useState('')
+
+  useEffect(() => {
+    if (task?.proyecto) {
+      api.get('/unidades/', { params: { proyecto: task.proyecto } })
+        .then((res) => setProjectUnits(res.data.results || res.data || []))
+        .catch(() => {})
+    }
+  }, [task?.proyecto])
+
   if (!isOpen) return null
 
   const handleStartEdit = () => {
     if (!task) return
+    const currentUnitId = task.unidades?.[0]?.id || ''
     setEditForm({
       titulo: task.titulo,
       descripcion: task.descripcion || '',
@@ -30,13 +42,23 @@ export default function TaskModal({ taskId, isOpen, onClose }) {
       horas_estimadas: task.horas_estimadas || '',
       latitud: task.latitud || '',
       longitud: task.longitud || '',
+      unidad_id: currentUnitId,
     })
     setEditing(true)
   }
 
   const handleSaveEdit = async () => {
     try {
-      await updateTask.mutateAsync({ id: taskId, data: editForm })
+      const formData = { ...editForm }
+      if (formData.horas_estimadas) formData.horas_estimadas = parseFloat(formData.horas_estimadas)
+      if (formData.porcentaje_avance) formData.porcentaje_avance = parseInt(formData.porcentaje_avance)
+      if (formData.unidad_id) formData.unidad_id = parseInt(formData.unidad_id)
+      else formData.unidad_id = null
+      if (formData.latitud) formData.latitud = parseFloat(formData.latitud)
+      else delete formData.latitud
+      if (formData.longitud) formData.longitud = parseFloat(formData.longitud)
+      else delete formData.longitud
+      await updateTask.mutateAsync({ id: taskId, data: formData })
       setEditing(false)
     } catch { /* error handled in hook */ }
   }
@@ -109,6 +131,18 @@ export default function TaskModal({ taskId, isOpen, onClose }) {
                 <input type="number" step="any" value={editForm.longitud} onChange={(e) => setEditForm({ ...editForm, longitud: e.target.value })}
                   placeholder="Longitud" className="px-3 py-2 border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-800 dark:text-white rounded-lg text-sm" />
               </div>
+              {projectUnits.length > 0 && (
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Unidad vinculada</label>
+                  <select value={editForm.unidad_id || ''} onChange={(e) => setEditForm({ ...editForm, unidad_id: e.target.value })}
+                    className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-800 dark:text-white rounded-lg text-sm">
+                    <option value="">Sin unidad</option>
+                    {projectUnits.map((u) => (
+                      <option key={u.id} value={u.id}>{u.nombre}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
               <div className="flex gap-2">
                 <button onClick={handleSaveEdit} className="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700">Guardar</button>
                 <button onClick={() => setEditing(false)} className="px-4 py-2 text-sm text-slate-600 dark:text-slate-400 hover:text-slate-800">Cancelar</button>
@@ -132,6 +166,24 @@ export default function TaskModal({ taskId, isOpen, onClose }) {
             <div>
               <h4 className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Descripción</h4>
               <p className="text-sm text-slate-600 dark:text-slate-400 whitespace-pre-wrap">{task.descripcion}</p>
+            </div>
+          )}
+
+          {!editing && task.unidades?.length > 0 && (
+            <div>
+              <h4 className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Unidades vinculadas</h4>
+              <div className="space-y-1">
+                {task.unidades.map((u) => (
+                  <div key={u.id} className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400">
+                    <span className={`w-2 h-2 rounded-full ${
+                      u.estado_implementacion === 'implementada' ? 'bg-blue-500' :
+                      u.estado_implementacion === 'en_implementacion' ? 'bg-red-500' : 'bg-gray-500'
+                    }`} />
+                    <span>{u.nombre}</span>
+                    <span className="text-xs text-slate-400">({u.latitud}, {u.longitud})</span>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
 

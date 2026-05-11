@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useProject } from '../hooks/useProjects'
 import { useBoards, useCreateBoard } from '../hooks/useBoards'
@@ -10,6 +10,7 @@ import Badge from '../components/common/Badge'
 import Loading from '../components/common/Loading'
 import ProjectMap from '../components/map/ProjectMap'
 import MembersPanel from '../components/projects/MembersPanel'
+import api from '../services/api'
 import toast from 'react-hot-toast'
 
 export default function ProjectDetail() {
@@ -24,8 +25,17 @@ export default function ProjectDetail() {
   const [newTaskModal, setNewTaskModal] = useState(false)
   const [newBoardModal, setNewBoardModal] = useState(false)
   const [view, setView] = useState('kanban')
+  const [projectUnits, setProjectUnits] = useState([])
 
   const board = boards?.[0]
+
+  useEffect(() => {
+    if (id) {
+      api.get('/unidades/', { params: { proyecto: id } })
+        .then((res) => setProjectUnits(res.data.results || res.data || []))
+        .catch(() => {})
+    }
+  }, [id])
 
   const handleCreateBoard = async (e) => {
     e.preventDefault()
@@ -40,6 +50,8 @@ export default function ProjectDetail() {
     const payload = { ...formData, proyecto: parseInt(id), tablero: board.id, columna: cols.length > 0 ? cols[0].id : null }
     if (payload.latitud) payload.latitud = parseFloat(payload.latitud)
     if (payload.longitud) payload.longitud = parseFloat(payload.longitud)
+    if (payload.unidad_id) payload.unidad_id = parseInt(payload.unidad_id)
+    else delete payload.unidad_id
     await createTask.mutateAsync(payload)
     setNewTaskModal(false)
   }
@@ -68,7 +80,7 @@ export default function ProjectDetail() {
       </div>
 
       <div className="flex gap-2 border-b border-slate-200 dark:border-slate-700 pb-2 flex-wrap">
-        {['kanban', 'lista', 'mapa', 'miembros'].map((t) => (
+        {['kanban', 'lista', ...(project.mostrar_mapa ? ['mapa'] : []), 'miembros'].map((t) => (
           <button key={t} onClick={() => setView(t)}
             className={`px-4 py-1.5 text-sm rounded-t capitalize ${view === t ? 'bg-white dark:bg-slate-800 border border-b-white dark:border-b-slate-800 border-slate-200 dark:border-slate-700 font-medium text-blue-600 dark:text-blue-400' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'}`}>
             {t === 'miembros' ? 'Miembros' : t.charAt(0).toUpperCase() + t.slice(1)}
@@ -147,6 +159,17 @@ export default function ProjectDetail() {
               <input name="longitud" step="any" placeholder="ej: -56.1645" className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-800 dark:text-white rounded-lg text-sm" />
             </div>
           </div>
+          {projectUnits.length > 0 && (
+            <div>
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Vincular Unidad</label>
+              <select name="unidad_id" className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-800 dark:text-white rounded-lg text-sm">
+                <option value="">Sin unidad</option>
+                {projectUnits.filter((u) => !u.tarea).map((u) => (
+                  <option key={u.id} value={u.id}>{u.nombre}</option>
+                ))}
+              </select>
+            </div>
+          )}
           <button type="submit" className="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700">Crear Tarea</button>
         </form>
       </Modal>

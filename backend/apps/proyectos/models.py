@@ -2,6 +2,12 @@ from django.db import models
 from django.conf import settings
 
 
+PLANTILLAS_PROYECTO = [
+    ('vacia', 'Vacío'),
+    ('implementacion', 'Implementación'),
+]
+
+
 class Proyecto(models.Model):
     ESTADOS = [
         ('planificado', 'Planificado'),
@@ -35,6 +41,8 @@ class Proyecto(models.Model):
     direccion = models.CharField(max_length=300, blank=True, null=True)
     latitud = models.DecimalField(max_digits=9, decimal_places=6, blank=True, null=True)
     longitud = models.DecimalField(max_digits=9, decimal_places=6, blank=True, null=True)
+    plantilla = models.CharField(max_length=20, choices=PLANTILLAS_PROYECTO, default='vacia')
+    mostrar_mapa = models.BooleanField(default=True)
     fecha_creacion = models.DateTimeField(auto_now_add=True)
 
     class Meta:
