@@ -69,6 +69,7 @@ class Tarea(models.Model):
     porcentaje_avance = models.PositiveIntegerField(default=0)
     latitud = models.DecimalField(max_digits=9, decimal_places=6, blank=True, null=True)
     longitud = models.DecimalField(max_digits=9, decimal_places=6, blank=True, null=True)
+    ua = models.ForeignKey('proyectos.UA', on_delete=models.SET_NULL, null=True, blank=True, related_name='tareas')
     orden = models.PositiveIntegerField(default=0)
 
     class Meta:

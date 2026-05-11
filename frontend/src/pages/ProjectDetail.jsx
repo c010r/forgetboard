@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useProject } from '../hooks/useProjects'
 import { useBoards, useCreateBoard } from '../hooks/useBoards'
@@ -9,7 +9,6 @@ import Modal from '../components/common/Modal'
 import Badge from '../components/common/Badge'
 import Loading from '../components/common/Loading'
 import ProjectMap from '../components/map/ProjectMap'
-import AsseImporter from '../components/map/AsseImporter'
 import MembersPanel from '../components/projects/MembersPanel'
 import api from '../services/api'
 import toast from 'react-hot-toast'
@@ -25,69 +24,20 @@ export default function ProjectDetail() {
   const [selectedTask, setSelectedTask] = useState(null)
   const [newTaskModal, setNewTaskModal] = useState(false)
   const [newBoardModal, setNewBoardModal] = useState(false)
-  const [asseModal, setAsseModal] = useState(false)
   const [view, setView] = useState('kanban')
-  const [projectUnits, setProjectUnits] = useState([])
-  const [catalogUnits, setCatalogUnits] = useState([])
+  const [uaList, setUaList] = useState([])
 
   const board = boards?.[0]
-  const [taskForm, setTaskForm] = useState({ titulo: '', descripcion: '', tipo: 'tarea', prioridad: 'media', latitud: '', longitud: '', unidad_key: '' })
-
-  const importedNames = useMemo(() => new Set(projectUnits.map((u) => u.nombre.toLowerCase())), [projectUnits])
-
-  const allUnitOptions = useMemo(() => {
-    const seen = new Set()
-    const result = []
-    for (const u of projectUnits) {
-      const key = `imported-${u.id}`
-      result.push({ key, label: u.nombre, imported: true, data: u, lat: u.latitud, lng: u.longitud })
-      seen.add(u.nombre.toLowerCase())
-    }
-    for (const u of catalogUnits) {
-      const name = u.nombre.trim()
-      if (!name || seen.has(name.toLowerCase())) continue
-      seen.add(name.toLowerCase())
-      result.push({ key: `catalog-${name}`, label: name, imported: false, data: u, lat: u.latitud, lng: u.longitud })
-    }
-    result.sort((a, b) => a.label.localeCompare(b.label))
-    return result
-  }, [projectUnits, catalogUnits])
-
-  const loadUnits = () => {
-    if (id) {
-      api.get('/unidades/', { params: { proyecto: id } })
-        .then((res) => setProjectUnits(res.data.results || res.data || []))
-        .catch(() => {})
-    }
-  }
-
-  useEffect(loadUnits, [id])
+  const [taskForm, setTaskForm] = useState({ titulo: '', descripcion: '', tipo: 'tarea', prioridad: 'media', latitud: '', longitud: '', ua_id: '' })
 
   useEffect(() => {
-    fetch('/unidades.geojson')
-      .then((r) => r.json())
-      .then((geo) => {
-        const units = geo.features
-          .filter((f) => f.properties && f.properties.latlong)
-          .map((f) => {
-            const p = f.properties
-            const [lat, lng] = (p.latlong || '').split(',').map(parseFloat)
-            return {
-              nombre: p.nombre || '',
-              direccion: [p.calle, p.numpuerta].filter(Boolean).join(' '),
-              latitud: lat,
-              longitud: lng,
-              cerrada: p.cerrada === 'SI',
-            }
-          })
-          .filter((u) => !u.cerrada && u.nombre && u.latitud && u.longitud)
-        setCatalogUnits(units)
-      })
+    api.get('/ua/')
+      .then((res) => setUaList(res.data.results || res.data || []))
       .catch(() => {})
   }, [])
 
   const resetTaskForm = () => {
-    setTaskForm({ titulo: '', descripcion: '', tipo: 'tarea', prioridad: 'media', latitud: '', longitud: '', unidad_key: '' })
+    setTaskForm({ titulo: '', descripcion: '', tipo: 'tarea', prioridad: 'media', latitud: '', longitud: '', ua_id: '' })
   }
 
   const handleCreateBoard = async (e) => {
@@ -97,16 +47,16 @@ export default function ProjectDetail() {
     setNewBoardModal(false)
   }
 
-  const handleUnitChange = (key) => {
-    const opt = allUnitOptions.find((o) => o.key === key)
-    if (!opt) {
-      setTaskForm({ ...taskForm, unidad_key: '', latitud: '', longitud: '' })
+  const handleUnitChange = (uaId) => {
+    const ua = uaList.find((u) => Number(u.id) === Number(uaId))
+    if (!ua) {
+      setTaskForm({ ...taskForm, ua_id: '', latitud: '', longitud: '' })
     } else {
       setTaskForm({
         ...taskForm,
-        unidad_key: key,
-        latitud: opt.lat != null ? String(Number(opt.lat)) : '',
-        longitud: opt.lng != null ? String(Number(opt.lng)) : '',
+        ua_id: uaId,
+        latitud: ua.latitud != null ? String(Number(ua.latitud)) : '',
+        longitud: ua.longitud != null ? String(Number(ua.longitud)) : '',
       })
     }
   }
@@ -125,30 +75,11 @@ export default function ProjectDetail() {
     }
     if (taskForm.latitud) payload.latitud = parseFloat(taskForm.latitud)
     if (taskForm.longitud) payload.longitud = parseFloat(taskForm.longitud)
-
-    const opt = allUnitOptions.find((o) => o.key === taskForm.unidad_key)
-    if (opt) {
-      if (opt.imported) {
-        payload.unidad_id = opt.data.id
-      } else {
-        try {
-          const newUnit = await api.post('/unidades/', {
-            proyecto: parseInt(id),
-            nombre: opt.label,
-            direccion: opt.data.direccion || '',
-            latitud: opt.lat,
-            longitud: opt.lng,
-            estado_implementacion: 'a_implementar',
-          })
-          payload.unidad_id = newUnit.data.id
-        } catch { /* fallback: crear tarea sin unidad */ }
-      }
-    }
+    if (taskForm.ua_id) payload.ua = parseInt(taskForm.ua_id)
 
     await createTask.mutateAsync(payload)
     setNewTaskModal(false)
     resetTaskForm()
-    loadUnits()
   }
 
   if (isLoading) return <Loading fullPage />
@@ -213,10 +144,6 @@ export default function ProjectDetail() {
         </form>
       </Modal>
 
-      <Modal isOpen={asseModal} onClose={() => { setAsseModal(false); setNewTaskModal(true) }} title="Importar Unidades ASSE" size="lg">
-        <AsseImporter projectId={id} onImported={() => { loadUnits(); setAsseModal(false); setNewTaskModal(true) }} />
-      </Modal>
-
       <Modal isOpen={newTaskModal} onClose={() => { setNewTaskModal(false); resetTaskForm() }} title="Nueva Tarea">
         <form onSubmit={(e) => { e.preventDefault(); handleCreateTask() }} className="space-y-4">
           <div>
@@ -265,21 +192,15 @@ export default function ProjectDetail() {
             </div>
           </div>
           <div>
-            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Unidad Asistencial</label>
-            <select value={taskForm.unidad_key} onChange={(e) => handleUnitChange(e.target.value)}
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Unidad Asistencial (UA)</label>
+            <select value={taskForm.ua_id} onChange={(e) => handleUnitChange(e.target.value)}
               className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-800 dark:text-white rounded-lg text-sm">
               <option value="">Sin unidad</option>
-              {allUnitOptions.map((opt) => (
-                <option key={opt.key} value={opt.key}>
-                  {opt.label}{opt.imported ? ' (importada)' : ''}
-                </option>
+              {uaList.map((ua) => (
+                <option key={ua.id} value={ua.id}>{ua.nombre} ({ua.departamento})</option>
               ))}
             </select>
-            <p className="text-xs text-slate-400 mt-1">
-              {allUnitOptions.length - projectUnits.length} unidades disponibles del catálogo ASSE
-              {projectUnits.length > 0 && ` · ${projectUnits.length} ya importadas`}
-              <button type="button" onClick={() => { setNewTaskModal(false); setAsseModal(true) }} className="ml-2 text-blue-600 hover:text-blue-800">Importar más</button>
-            </p>
+            <p className="text-xs text-slate-400 mt-1">{uaList.length} unidades en catálogo</p>
           </div>
           <button type="submit" className="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700">Crear Tarea</button>
         </form>

@@ -2,8 +2,8 @@ from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from django_filters import rest_framework as filters
-from .models import Proyecto, MiembroProyecto, DocumentoProyecto, Unidad, PlantillaProyecto
-from .serializers import ProyectoSerializer, MiembroProyectoSerializer, DocumentoProyectoSerializer, UnidadSerializer, PlantillaProyectoSerializer
+from .models import Proyecto, MiembroProyecto, DocumentoProyecto, Unidad, PlantillaProyecto, UA
+from .serializers import ProyectoSerializer, MiembroProyectoSerializer, DocumentoProyectoSerializer, UnidadSerializer, PlantillaProyectoSerializer, UASerializer
 from apps.tableros.models import Tablero, ColumnaTablero
 from apps.actividades.models import Actividad
 from apps.usuarios.permissions import IsAdminOrReadOnly, IsProjectMemberOrAdmin
@@ -110,6 +110,15 @@ class UnidadViewSet(viewsets.ModelViewSet):
         if user.rol == 'administrador':
             return qs
         return qs.filter(proyecto__miembros__usuario=user).distinct()
+
+
+class UAViewSet(viewsets.ModelViewSet):
+    queryset = UA.objects.all()
+    serializer_class = UASerializer
+    permission_classes = [IsProjectMemberOrAdmin]
+    search_fields = ['nombre', 'departamento', 'localidad']
+    filterset_fields = ['departamento', 'categoria']
+    ordering_fields = ['nombre']
 
 
 class PlantillaProyectoViewSet(viewsets.ModelViewSet):

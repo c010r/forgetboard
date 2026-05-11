@@ -120,6 +120,25 @@ class DocumentoProyecto(models.Model):
         return f"{self.nombre} - {self.proyecto.nombre}"
 
 
+class UA(models.Model):
+    nombre = models.CharField(max_length=200)
+    direccion = models.CharField(max_length=300, blank=True, null=True)
+    latitud = models.DecimalField(max_digits=9, decimal_places=6)
+    longitud = models.DecimalField(max_digits=9, decimal_places=6)
+    categoria = models.CharField(max_length=100, blank=True, default='')
+    departamento = models.CharField(max_length=100, blank=True, default='')
+    localidad = models.CharField(max_length=100, blank=True, default='')
+    fecha_creacion = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'UA - Unidad Asistencial'
+        verbose_name_plural = 'UA - Unidades Asistenciales'
+        ordering = ['nombre']
+
+    def __str__(self):
+        return self.nombre
+
+
 class Unidad(models.Model):
     ESTADOS = [
         ('a_implementar', 'A IMPLEMENTAR'),
@@ -138,8 +157,8 @@ class Unidad(models.Model):
     fecha_creacion = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        verbose_name = 'Unidad Asistencial'
-        verbose_name_plural = 'Unidades Asistenciales'
+        verbose_name = 'Unidad Asistencial (deprecated)'
+        verbose_name_plural = 'Unidades Asistenciales (deprecated)'
         ordering = ['nombre']
 
     def __str__(self):

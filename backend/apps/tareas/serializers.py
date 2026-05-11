@@ -50,7 +50,8 @@ class TareaListSerializer(serializers.ModelSerializer):
         model = Tarea
         fields = ['id', 'codigo', 'titulo', 'tipo', 'estado', 'prioridad', 'responsable',
                   'responsable_nombre', 'columna', 'columna_nombre', 'proyecto',
-                  'fecha_creacion', 'fecha_limite', 'porcentaje_avance', 'latitud', 'longitud', 'orden']
+                  'fecha_creacion', 'fecha_limite', 'porcentaje_avance', 'latitud', 'longitud',
+                  'ua', 'orden']
         read_only_fields = ['id', 'fecha_creacion']
 
 class TareaDetailSerializer(serializers.ModelSerializer):
@@ -64,6 +65,8 @@ class TareaDetailSerializer(serializers.ModelSerializer):
     columna_nombre = serializers.CharField(source='columna.nombre', read_only=True)
     unidades = serializers.SerializerMethodField()
     unidad_id = serializers.IntegerField(write_only=True, required=False, allow_null=True)
+    ua_nombre = serializers.CharField(source='ua.nombre', read_only=True, allow_null=True)
+    ua_data = serializers.SerializerMethodField()
 
     class Meta:
         model = Tarea
@@ -73,13 +76,20 @@ class TareaDetailSerializer(serializers.ModelSerializer):
                   'fecha_creacion', 'fecha_inicio', 'fecha_limite', 'fecha_cierre',
                   'horas_estimadas', 'horas_trabajadas', 'porcentaje_avance',
                   'latitud', 'longitud', 'orden',
-                  'subtareas', 'checklists', 'comentarios', 'adjuntos', 'unidades', 'unidad_id']
+                  'subtareas', 'checklists', 'comentarios', 'adjuntos', 'unidades', 'unidad_id',
+                  'ua', 'ua_nombre', 'ua_data']
         read_only_fields = ['id', 'codigo', 'creador', 'fecha_creacion']
 
     def get_unidades(self, obj):
         from apps.proyectos.serializers import UnidadSerializer
         unidades = obj.unidades.all()
         return UnidadSerializer(unidades, many=True).data
+
+    def get_ua_data(self, obj):
+        if not obj.ua:
+            return None
+        from apps.proyectos.serializers import UASerializer
+        return UASerializer(obj.ua).data
 
     def create(self, validated_data):
         unidad_id = validated_data.pop('unidad_id', None)
