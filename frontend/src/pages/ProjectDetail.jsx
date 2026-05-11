@@ -122,8 +122,8 @@ export default function ProjectDetail() {
         </form>
       </Modal>
 
-      <Modal isOpen={asseModal} onClose={() => setAsseModal(false)} title="Importar Unidades ASSE" size="lg">
-        <AsseImporter projectId={id} onImported={() => { loadUnits(); setAsseModal(false) }} />
+      <Modal isOpen={asseModal} onClose={() => { setAsseModal(false); setNewTaskModal(true) }} title="Importar Unidades ASSE" size="lg">
+        <AsseImporter projectId={id} onImported={() => { loadUnits(); setAsseModal(false); setNewTaskModal(true) }} />
       </Modal>
 
       <Modal isOpen={newTaskModal} onClose={() => setNewTaskModal(false)} title="Nueva Tarea">
@@ -176,7 +176,7 @@ export default function ProjectDetail() {
                   <option key={u.id} value={u.id}>{u.nombre}</option>
                 ))}
               </select>
-              <button type="button" onClick={() => setAsseModal(true)}
+              <button type="button" onClick={() => { setNewTaskModal(false); setAsseModal(true) }}
                 className="px-3 py-2 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700 whitespace-nowrap">
                 + ASSE
               </button>
