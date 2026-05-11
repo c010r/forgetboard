@@ -30,6 +30,7 @@ export default function ProjectDetail() {
   const [projectUnits, setProjectUnits] = useState([])
 
   const board = boards?.[0]
+  const [taskForm, setTaskForm] = useState({ titulo: '', descripcion: '', tipo: 'tarea', prioridad: 'media', latitud: '', longitud: '', unidad_id: '' })
 
   const loadUnits = () => {
     if (id) {
@@ -41,6 +42,10 @@ export default function ProjectDetail() {
 
   useEffect(loadUnits, [id])
 
+  const resetTaskForm = () => {
+    setTaskForm({ titulo: '', descripcion: '', tipo: 'tarea', prioridad: 'media', latitud: '', longitud: '', unidad_id: '' })
+  }
+
   const handleCreateBoard = async (e) => {
     e.preventDefault()
     const data = new FormData(e.target)
@@ -48,16 +53,34 @@ export default function ProjectDetail() {
     setNewBoardModal(false)
   }
 
-  const handleCreateTask = async (formData) => {
+  const handleUnitChange = (unidadId) => {
+    const unit = projectUnits.find((u) => u.id === parseInt(unidadId))
+    setTaskForm({
+      ...taskForm,
+      unidad_id: unidadId,
+      latitud: unit ? String(unit.latitud) : '',
+      longitud: unit ? String(unit.longitud) : '',
+    })
+  }
+
+  const handleCreateTask = async () => {
     if (!board) { toast.error('Crea un tablero primero'); return }
     const cols = board.columnas || []
-    const payload = { ...formData, proyecto: parseInt(id), tablero: board.id, columna: cols.length > 0 ? cols[0].id : null }
-    if (payload.latitud) payload.latitud = parseFloat(payload.latitud)
-    if (payload.longitud) payload.longitud = parseFloat(payload.longitud)
-    if (payload.unidad_id) payload.unidad_id = parseInt(payload.unidad_id)
-    else delete payload.unidad_id
+    const payload = {
+      titulo: taskForm.titulo,
+      descripcion: taskForm.descripcion || undefined,
+      tipo: taskForm.tipo,
+      prioridad: taskForm.prioridad,
+      proyecto: parseInt(id),
+      tablero: board.id,
+      columna: cols.length > 0 ? cols[0].id : null,
+    }
+    if (taskForm.latitud) payload.latitud = parseFloat(taskForm.latitud)
+    if (taskForm.longitud) payload.longitud = parseFloat(taskForm.longitud)
+    if (taskForm.unidad_id) payload.unidad_id = parseInt(taskForm.unidad_id)
     await createTask.mutateAsync(payload)
     setNewTaskModal(false)
+    resetTaskForm()
   }
 
   if (isLoading) return <Loading fullPage />
@@ -76,7 +99,7 @@ export default function ProjectDetail() {
           <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">{project.codigo}</p>
         </div>
         <div className="flex gap-2">
-          <button onClick={() => setNewTaskModal(true)} className="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700">+ Nueva Tarea</button>
+          <button onClick={() => { resetTaskForm(); setNewTaskModal(true) }} className="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700">+ Nueva Tarea</button>
           {!board && (
             <button onClick={() => setNewBoardModal(true)} className="px-4 py-2 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700">+ Crear Tablero</button>
           )}
@@ -126,20 +149,23 @@ export default function ProjectDetail() {
         <AsseImporter projectId={id} onImported={() => { loadUnits(); setAsseModal(false); setNewTaskModal(true) }} />
       </Modal>
 
-      <Modal isOpen={newTaskModal} onClose={() => setNewTaskModal(false)} title="Nueva Tarea">
-        <form onSubmit={(e) => { e.preventDefault(); const data = Object.fromEntries(new FormData(e.target)); handleCreateTask(data) }} className="space-y-4">
+      <Modal isOpen={newTaskModal} onClose={() => { setNewTaskModal(false); resetTaskForm() }} title="Nueva Tarea">
+        <form onSubmit={(e) => { e.preventDefault(); handleCreateTask() }} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Título</label>
-            <input name="titulo" required className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-800 dark:text-white rounded-lg text-sm" />
+            <input value={taskForm.titulo} onChange={(e) => setTaskForm({ ...taskForm, titulo: e.target.value })} required
+              className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-800 dark:text-white rounded-lg text-sm" />
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Descripción</label>
-            <textarea name="descripcion" rows={3} className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-800 dark:text-white rounded-lg text-sm" />
+            <textarea value={taskForm.descripcion} onChange={(e) => setTaskForm({ ...taskForm, descripcion: e.target.value })} rows={3}
+              className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-800 dark:text-white rounded-lg text-sm" />
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Tipo</label>
-              <select name="tipo" className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-800 dark:text-white rounded-lg text-sm">
+              <select value={taskForm.tipo} onChange={(e) => setTaskForm({ ...taskForm, tipo: e.target.value })}
+                className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-800 dark:text-white rounded-lg text-sm">
                 <option value="tarea">Tarea</option>
                 <option value="bug">Bug</option>
                 <option value="historia_usuario">Historia de Usuario</option>
@@ -148,7 +174,8 @@ export default function ProjectDetail() {
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Prioridad</label>
-              <select name="prioridad" className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-800 dark:text-white rounded-lg text-sm">
+              <select value={taskForm.prioridad} onChange={(e) => setTaskForm({ ...taskForm, prioridad: e.target.value })}
+                className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-800 dark:text-white rounded-lg text-sm">
                 <option value="baja">Baja</option>
                 <option value="media">Media</option>
                 <option value="alta">Alta</option>
@@ -160,17 +187,20 @@ export default function ProjectDetail() {
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Latitud</label>
-              <input name="latitud" step="any" placeholder="ej: -34.9011" className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-800 dark:text-white rounded-lg text-sm" />
+              <input value={taskForm.latitud} onChange={(e) => setTaskForm({ ...taskForm, latitud: e.target.value })} step="any" placeholder="ej: -34.9011"
+                className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-800 dark:text-white rounded-lg text-sm" />
             </div>
             <div>
               <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Longitud</label>
-              <input name="longitud" step="any" placeholder="ej: -56.1645" className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-800 dark:text-white rounded-lg text-sm" />
+              <input value={taskForm.longitud} onChange={(e) => setTaskForm({ ...taskForm, longitud: e.target.value })} step="any" placeholder="ej: -56.1645"
+                className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-800 dark:text-white rounded-lg text-sm" />
             </div>
           </div>
           <div>
             <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Unidad Asistencial</label>
             <div className="flex gap-2">
-              <select name="unidad_id" className="flex-1 px-3 py-2 border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-800 dark:text-white rounded-lg text-sm">
+              <select value={taskForm.unidad_id} onChange={(e) => handleUnitChange(e.target.value)}
+                className="flex-1 px-3 py-2 border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-800 dark:text-white rounded-lg text-sm">
                 <option value="">Sin unidad</option>
                 {projectUnits.filter((u) => !u.tarea).map((u) => (
                   <option key={u.id} value={u.id}>{u.nombre}</option>
